@@ -1,44 +1,5 @@
 import { JSONSchemaFaker } from "json-schema-faker";
 
-export function lol() {
-    const schema = {
-        type: "object",
-        properties: {
-            user: {
-                type: "object",
-                properties: {
-                    id: {
-                        $ref: "#/definitions/positiveInt",
-                    },
-                    name: {
-                        type: "string",
-                    },
-                    phone: {
-                        type: "string",
-                        pattern: "^(\\([0-9]{3}\\))?[0-9]{3}-[0-9]{4}$"
-                    },
-                    email: {
-                        type: "string",
-                        format: "email",
-                    },
-                },
-                required: ["id", "name", "email", "phone"],
-            },
-        },
-        required: ["user"],
-        definitions: {
-            positiveInt: {
-                type: "integer",
-                minimum: 0,
-                exclusiveMinimum: true,
-            },
-        },
-    };
-
-    return JSONSchemaFaker.generate(schema); // [object Object]
-}
-
-// Read input from stdin
 function readInput() {
     const chunkSize = 1024;
     const inputChunks = [];
@@ -47,9 +8,8 @@ function readInput() {
     // Read all the available bytes
     while (1) {
         const buffer = new Uint8Array(chunkSize);
-        // Stdin file descriptor
-        const fd = 0;
-        const bytesRead = Javy.IO.readSync(fd, buffer);
+        const stdin = 0;
+        const bytesRead = Javy.IO.readSync(stdin, buffer);
 
         totalBytes += bytesRead;
         if (bytesRead === 0) {

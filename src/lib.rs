@@ -1,17 +1,12 @@
-use std::fs;
-
 use wasi_common::pipe::{ReadPipe, WritePipe};
 use wasmtime::*;
 use wasmtime_wasi::sync::WasiCtxBuilder;
 
+const PRECOMPILED_WASM: [u8; include_bytes!(concat!(env!("OUT_DIR"), "/faker_wasm.dat")).len()] =
+    *include_bytes!(concat!(env!("OUT_DIR"), "/faker_wasm.dat"));
+
 #[derive(Debug)]
 pub enum Error {}
-
-fn precomp(engine: &Engine) -> Vec<u8> {
-    engine
-        .precompile_module(&fs::read("js/index.wasm").unwrap())
-        .unwrap()
-}
 
 pub fn generate(schema: &serde_json::Value, count: u16) -> Result<Vec<serde_json::Value>, Error> {
     let wasi_command_json = serde_json::json!({
@@ -21,7 +16,6 @@ pub fn generate(schema: &serde_json::Value, count: u16) -> Result<Vec<serde_json
     let wasi_command = wasi_command_json.to_string();
 
     let engine = Engine::default();
-    let module_bytes = precomp(&engine);
 
     let mut linker = Linker::new(&engine);
     wasmtime_wasi::add_to_linker(&mut linker, |s| s).expect("unexpected wasm linker error");
@@ -35,7 +29,8 @@ pub fn generate(schema: &serde_json::Value, count: u16) -> Result<Vec<serde_json
         .build();
     let mut store = Store::new(&engine, wasi_ctx);
 
-    let module = unsafe { Module::deserialize(&engine, module_bytes) }.expect("deserialize shit");
+    let module =
+        unsafe { Module::deserialize(&engine, PRECOMPILED_WASM) }.expect("deserialize shit");
 
     linker
         .module(&mut store, "", &module)

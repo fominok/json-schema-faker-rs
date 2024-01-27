@@ -20,4 +20,5 @@ fn main() {
     let json_schema: serde_json::Value =
         serde_json::from_str(SCHEMA).expect("must be a valid JSON");
     let documents = json_schema_faker::generate(&json_schema, 3).unwrap();
+    dbg!(documents);
 }
