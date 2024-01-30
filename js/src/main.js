@@ -1,4 +1,4 @@
-import { JSONSchemaFaker } from "json-schema-faker";
+import jsf from "json-schema-faker";
 
 function readInput() {
     const chunkSize = 1024;
@@ -35,9 +35,23 @@ function writeOutput(output) {
     Javy.IO.writeSync(stdout, buffer);
 }
 
+function byteArrayKeywordSub(schema) {
+    delete schema.byteArray;
+    schema.items = {
+        type: "integer",
+        minimum: 0,
+        maximum: 255
+    };
+}
+
+jsf.define('byteArray', (value, schema) => {
+    byteArrayKeywordSub(schema);
+    return schema;
+});
+
 const input = JSON.parse(readInput());
 const schema = input.schema;
 const count = input.count;
-const fakeData = Array.from({length: count}, () => JSONSchemaFaker.generate(schema));
+const fakeData = Array.from({length: count}, () => jsf.generate(schema));
 
 writeOutput(JSON.stringify(fakeData));
