@@ -6,7 +6,20 @@ const PRECOMPILED_WASM: [u8; include_bytes!(concat!(env!("OUT_DIR"), "/faker_was
     *include_bytes!(concat!(env!("OUT_DIR"), "/faker_wasm.dat"));
 
 #[derive(Debug, thiserror::Error)]
-pub enum Error {}
+#[error("json-schema-faker can't produce an output for the schema")]
+pub struct Error;
+
+impl From<wasmtime::Error> for Error {
+    fn from(_: wasmtime::Error) -> Self {
+        Error
+    }
+}
+
+impl From<serde_json::Error> for Error {
+    fn from(_: serde_json::Error) -> Self {
+        Error
+    }
+}
 
 pub fn generate(schema: &serde_json::Value, count: u16) -> Result<Vec<serde_json::Value>, Error> {
     let wasi_command_json = serde_json::json!({
@@ -40,11 +53,71 @@ pub fn generate(schema: &serde_json::Value, count: u16) -> Result<Vec<serde_json
         .expect("unexpected wasmtime error")
         .typed::<(), ()>(&store)
         .expect("unexpected wasmtime error")
-        .call(&mut store, ())
-        .expect("unexpected wasmtime error");
+        .call(&mut store, ())?;
 
     drop(store);
     let module_out = wasi_stdout.try_into_inner().expect("unique ownership");
     let str_out = std::str::from_utf8(&module_out.get_ref()).expect("must be a valid UTF8");
-    Ok(serde_json::from_str(str_out).expect("unexpectedly malformed JSON"))
+    Ok(serde_json::from_str(str_out)?)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn good() {
+        const SCHEMA: &'static str = r#"
+{
+    "type": "object",
+    "required": ["name", "credits"],
+    "properties": {
+        "name": { "type": "string" },
+        "credits": { "type": "integer", "minimum": 0, "maximum": 13371337 }
+    }
+}"#;
+
+        let json_schema: serde_json::Value =
+            serde_json::from_str(SCHEMA).expect("must be a valid JSON");
+        let documents = generate(&json_schema, 100).expect("schema must be correct");
+
+        assert!(!documents.is_empty());
+
+        let simple_check = documents
+            .iter()
+            .flat_map(|v| v.as_object())
+            .map(|object| {
+                object.contains_key("name")
+                    && object
+                        .get("credits")
+                        .map(|credits| {
+                            credits
+                                .as_number()
+                                .map(|n| n.as_u64())
+                                .flatten()
+                                .map(|c| c > 0)
+                                .unwrap_or_default()
+                        })
+                        .unwrap_or_default()
+            })
+            .fold(true, |acc, x| acc && x);
+
+        assert!(simple_check);
+    }
+
+    #[test]
+    fn bad() {
+        const SCHEMA: &'static str = r#"
+{
+    "type": "object",
+    "required": ["name"],
+    "properties": {
+        "name": { "type": "kek" }
+    }
+}"#;
+
+        let json_schema: serde_json::Value =
+            serde_json::from_str(SCHEMA).expect("must be a valid JSON");
+        assert!(generate(&json_schema, 10).is_err());
+    }
 }

@@ -1,15 +1,21 @@
 # json-schema-faker-rs
 JSONschema faker not in Rust, but for Rust.
 
-_The project is a prototype and lacks even proper error handling,
-support for custom keywords and refs, use at your own risk_
+_The project is a prototype and lacks support for custom keywords and refs, use at your
+own risk_
 
 ## Motivation
 
 Who wants a data generator for JSON schemas in Rust? And who wants to write it in their
-free time, since no company is willing to invest in it? Me neither. However, we have a
-working generator in JavaScript, and this library aims to fill the gap and deliver the
-flagship JSON schema data generator experience to the Rust world.
+free time? Me neither. However, we have a working generator in JavaScript, and this
+library aims to fill the gap and deliver the flagship JSON schema data generator
+experience to the Rust world.
+
+## Requirements
+
+1. Rust with Cargo
+2. [Javy](https://github.com/bytecodealliance/javy)
+3. npm
 
 ## How it works
 1. We use [json-schema-faker](https://github.com/json-schema-faker/json-schema-faker) to
