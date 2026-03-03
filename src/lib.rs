@@ -1,23 +1,26 @@
-use wasi_common::pipe::{ReadPipe, WritePipe};
 use wasmtime::*;
-use wasmtime_wasi::sync::WasiCtxBuilder;
+use wasmtime_wasi::{
+    p1::{self, WasiP1Ctx},
+    p2::pipe::{MemoryInputPipe, MemoryOutputPipe},
+    WasiCtxBuilder,
+};
 
 const PRECOMPILED_WASM: [u8; include_bytes!(concat!(env!("OUT_DIR"), "/faker_wasm.dat")).len()] =
     *include_bytes!(concat!(env!("OUT_DIR"), "/faker_wasm.dat"));
 
 #[derive(Debug, thiserror::Error)]
-#[error("json-schema-faker can't produce an output for the schema")]
-pub struct Error;
+#[error("{0}")]
+pub struct Error(String);
 
 impl From<wasmtime::Error> for Error {
-    fn from(_: wasmtime::Error) -> Self {
-        Error
+    fn from(err: wasmtime::Error) -> Self {
+        Error(format!("json-schema-faker runtime error: {err}"))
     }
 }
 
 impl From<serde_json::Error> for Error {
-    fn from(_: serde_json::Error) -> Self {
-        Error
+    fn from(err: serde_json::Error) -> Self {
+        Error(format!("json-schema-faker output decode error: {err}"))
     }
 }
 
@@ -29,35 +32,49 @@ pub fn generate(schema: &serde_json::Value, count: u16) -> Result<Vec<serde_json
     let wasi_command = wasi_command_json.to_string();
 
     let engine = Engine::default();
-    let mut linker = Linker::new(&engine);
-    wasmtime_wasi::add_to_linker(&mut linker, |s| s).expect("unexpected wasm linker error");
+    let mut linker: Linker<WasiP1Ctx> = Linker::new(&engine);
+    p1::add_to_linker_sync(&mut linker, |s| s).expect("unexpected wasm linker error");
 
-    let wasi_stdin = Box::new(ReadPipe::from(wasi_command));
-    let wasi_stdout = Box::new(WritePipe::new_in_memory());
+    let wasi_stdin = MemoryInputPipe::new(wasi_command.into_bytes());
+    let wasi_stdout = MemoryOutputPipe::new(1024 * 1024 * 10);
+    let wasi_stderr = MemoryOutputPipe::new(1024 * 1024);
 
-    let wasi_ctx = WasiCtxBuilder::new()
+    let mut wasi_ctx_builder = WasiCtxBuilder::new();
+    wasi_ctx_builder
         .stdin(wasi_stdin)
         .stdout(wasi_stdout.clone())
-        .build();
+        .stderr(wasi_stderr.clone());
+    let wasi_ctx = wasi_ctx_builder.build_p1();
     let mut store = Store::new(&engine, wasi_ctx);
 
     // SAFETY: Module is trusted and comes from our build process
     let module = unsafe { Module::deserialize(&engine, &PRECOMPILED_WASM) }
         .expect("was compiled and embedded in the build script");
 
-    linker
-        .module(&mut store, "", &module)
-        .expect("unexpected wasmtime error");
-    linker
-        .get_default(&mut store, "")
-        .expect("unexpected wasmtime error")
-        .typed::<(), ()>(&store)
-        .expect("unexpected wasmtime error")
-        .call(&mut store, ())?;
+    let call_result = (|| -> wasmtime::Result<()> {
+        linker.module(&mut store, "", &module)?;
+        let f = linker.get_default(&mut store, "")?;
+        let f = f.typed::<(), ()>(&store)?;
+        f.call(&mut store, ())?;
+        Ok(())
+    })();
+
+    if let Err(err) = call_result {
+        let stderr = wasi_stderr.contents();
+        if !stderr.is_empty() {
+            if let Ok(stderr_text) = std::str::from_utf8(stderr.as_ref()) {
+                return Err(Error(format!(
+                    "json-schema-faker runtime error: {err}. wasi stderr: {}",
+                    stderr_text.trim()
+                )));
+            }
+        }
+        return Err(err.into());
+    }
 
     drop(store);
-    let module_out = wasi_stdout.try_into_inner().expect("unique ownership");
-    let str_out = std::str::from_utf8(&module_out.get_ref()).expect("must be a valid UTF8");
+    let module_out = wasi_stdout.contents();
+    let str_out = std::str::from_utf8(module_out.as_ref()).expect("must be a valid UTF8");
     Ok(serde_json::from_str(str_out)?)
 }
 

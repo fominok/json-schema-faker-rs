@@ -1,4 +1,4 @@
-import jsf from "json-schema-faker";
+import { define, generate } from "json-schema-faker";
 
 function readInput() {
     const chunkSize = 1024;
@@ -44,7 +44,7 @@ function byteArrayKeywordSub(schema) {
     };
 }
 
-jsf.define('byteArray', (value, schema) => {
+define('byteArray', (value, schema) => {
     byteArrayKeywordSub(schema);
     return schema;
 });
@@ -52,6 +52,5 @@ jsf.define('byteArray', (value, schema) => {
 const input = JSON.parse(readInput());
 const schema = input.schema;
 const count = input.count;
-const fakeData = Array.from({length: count}, () => jsf.generate(schema));
-
+const fakeData = await Promise.all(Array.from({length: count}, () => generate(schema)));
 writeOutput(JSON.stringify(fakeData));

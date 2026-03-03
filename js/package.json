@@ -11,12 +11,12 @@
   "author": "Evgeny Fomin <fominok@hotmail.com>",
   "license": "MIT",
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^25.0.7",
-    "@rollup/plugin-node-resolve": "^15.2.3",
+    "@rollup/plugin-commonjs": "^29.0.0",
+    "@rollup/plugin-node-resolve": "^16.0.3",
     "rollup": "^4.9.6"
   },
   "dependencies": {
-    "json-schema-faker": "^0.5.5",
-    "json-schema-ref-parser": "^6.1.0"
+    "json-schema-faker": "^0.6.0",
+    "json-schema-ref-parser": "^9.0.0"
   }
 }

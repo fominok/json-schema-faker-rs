@@ -3,7 +3,7 @@ name = "json-schema-faker"
 authors = ["Evgeny Fomin <fominok@hotmail.com>"]
 version = "0.1.0"
 description = "Rust wrapper of JS' `json-schema-faker`"
-edition = "2021"
+edition = "2024"
 keywords = ["data", "random", "generator", "jsonschema"]
 categories = ["web-programming"]
 homepage = "https://github.com/fominok/json-schema-faker-rs"
@@ -11,14 +11,13 @@ license = "MIT"
 
 [dependencies]
 serde_json = "1.0"
-thiserror = "1.0"
-wasi-common = { version = "16.0.0", default-features = false }
-wasmtime = { version = "16.0.0", default-features = false, features = ["cranelift"] }
-wasmtime-wasi = { version = "16.0.0", default-features = false, features = ["sync"] }
+thiserror = "2.0"
+wasmtime = { version = "42.0.1", default-features = false, features = ["cranelift"] }
+wasmtime-wasi = { version = "42.0.1", default-features = false, features = ["p1"] }
 
 [build-dependencies]
 dircpy = "0.3"
-wasmtime = { version = "16.0.0", default-features = false, features = ["cranelift"] }
+wasmtime = { version = "42.0.1", default-features = false, features = ["cranelift"] }
 
 [[example]]
 name = "simple"

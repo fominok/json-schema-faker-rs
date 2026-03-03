@@ -43,7 +43,9 @@ fn main() {
 
     // Build a WASM binary from the JS bundle
     if !Command::new("javy")
-        .arg("compile")
+        .arg("build")
+        .arg("-J")
+        .arg("event-loop=y")
         .arg("js/dist/bundle.mjs")
         .current_dir(out_dir.clone())
         .status()
